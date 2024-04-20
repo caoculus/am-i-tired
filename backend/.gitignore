@@ -1,4 +1,6 @@
 /target
 shell.nix
-.envrc
-.direnv
+.*
+package.json
+package-lock.json
+node_modules

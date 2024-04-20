@@ -3,29 +3,55 @@ use axum::{
         ws::{self, WebSocket},
         WebSocketUpgrade,
     },
-    response::Response,
-    routing::get,
-    Router,
+    response::{IntoResponse, Response},
+    routing::{get, post},
+    Json, Router,
 };
 use color_eyre::eyre::Result;
+// use sqlx::{postgres::PgPoolOptions, PgPool};
 use tokio::{fs::File, io::AsyncWriteExt};
+use tower_http::cors::CorsLayer;
 use tracing::*;
 
-// TODO: auth routes?
+// #[derive(Clone)]
+// struct AppState {
+//     user_db: PgPool,
+// }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
+    color_eyre::install()?;
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
         .init();
 
+    // let conn_url = std::env!("DATABASE_URL");
+    // let user_db = PgPoolOptions::new()
+    //     .max_connections(5)
+    //     .connect(conn_url)
+    //     .await?;
+    // sqlx::migrate!("./migrations").run(&user_db).await?;
+
     // build our application with a route
-    let app = Router::new().route("/", get(ws_test));
+    let app = Router::new()
+        .route("/", get(ws_test))
+        .route("/request", post(request))
+        .layer(CorsLayer::very_permissive());
+        // .with_state(AppState { user_db });
+
+    // TODO: What requests are we even receiving in the first place?
+    
 
     // run it
     let listener = tokio::net::TcpListener::bind(":::3000").await.unwrap();
     info!("listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app).await.unwrap();
+
+    Ok(())
+}
+
+async fn request(Json(json): Json<serde_json::Value>) -> impl IntoResponse {
+    info!("Got value: {json}")
 }
 
 async fn ws_test(ws: WebSocketUpgrade) -> Response {
