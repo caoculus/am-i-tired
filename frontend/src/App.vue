@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { RouterLink, RouterView } from 'vue-router'
+import {usePrimeVue} from "primevue/config";
+
+const PrimeVue = usePrimeVue()
+PrimeVue.changeTheme('lara-dark-green', 'lara-dark-green', 'theme-link', () => {} )
 </script>
 
 <template>
-  <div class="fixed p-0 m-0 top-0 left-0 w-full h-full bg-surface-900">
+  <div class="fixed p-0 m-0 top-0 left-0 w-full h-full bg-surface-100 dark:bg-surface-900">
     <header>
       <nav>
         <RouterLink to="/">Home</RouterLink>
