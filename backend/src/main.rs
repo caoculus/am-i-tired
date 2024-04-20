@@ -1,16 +1,19 @@
 use axum::{
     extract::{
         ws::{self, WebSocket},
-        WebSocketUpgrade,
+        Query, WebSocketUpgrade,
     },
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
 use color_eyre::eyre::Result;
+use serde::Deserialize;
+use tokio_tungstenite::tungstenite;
 // use sqlx::{postgres::PgPoolOptions, PgPool};
-use tokio::{fs::File, io::AsyncWriteExt};
+// use tokio::{fs::File, io::AsyncWriteExt};
 use tower_http::cors::CorsLayer;
+use futures::{SinkExt, StreamExt};
 use tracing::*;
 
 // #[derive(Clone)]
@@ -37,10 +40,9 @@ async fn main() -> Result<()> {
         .route("/", get(ws_test))
         .route("/request", post(request))
         .layer(CorsLayer::very_permissive());
-        // .with_state(AppState { user_db });
+    // .with_state(AppState { user_db });
 
     // TODO: What requests are we even receiving in the first place?
-    
 
     // run it
     let listener = tokio::net::TcpListener::bind(":::3000").await.unwrap();
@@ -54,22 +56,36 @@ async fn request(Json(json): Json<serde_json::Value>) -> impl IntoResponse {
     info!("Got value: {json}")
 }
 
-async fn ws_test(ws: WebSocketUpgrade) -> Response {
-    ws.on_upgrade(|ws| async { _ = handle_ws(ws).await })
+#[derive(Deserialize)]
+struct UserQuery {
+    user: String,
 }
 
+async fn ws_test(ws: WebSocketUpgrade, Query(UserQuery { user }): Query<UserQuery>) -> Response {
+    ws.on_upgrade(|ws| async {
+        _ = handle_ws(ws, user).await;
+    })
+}
+
+// TODO: More stuff here!
+// Forward things to another server
+
+const AI_SERVER_ADDR: &str = "TODO";
+
 #[tracing::instrument(skip_all, err(Debug))]
-async fn handle_ws(mut ws: WebSocket) -> Result<()> {
+async fn handle_ws(mut ws: WebSocket, user: String) -> Result<()> {
     info!("Got connection");
 
-    let now = chrono::offset::Local::now();
-    let mut f = File::create(&format!("{now}.webm")).await?;
+    let (mut ai_ws, _) = tokio_tungstenite::connect_async(AI_SERVER_ADDR).await?;
+
+    // let now = chrono::offset::Local::now();
+    // let mut f = File::create(&format!("{now}.webm")).await?;
     while let Some(res) = ws.recv().await {
         let msg = res?;
         match msg {
             ws::Message::Binary(new_data) => {
                 info!("Got binary");
-                f.write_all(&new_data).await?;
+                ai_ws.send(tungstenite::Message::Binary(new_data)).await?;
             }
             ws::Message::Close(_) => {
                 info!("Connection closed");
@@ -78,6 +94,10 @@ async fn handle_ws(mut ws: WebSocket) -> Result<()> {
             _ => {}
         }
     }
-    // TODO: Do some stuff with the data
+
+    // we'll mark eof with an empty message
+    ai_ws.send(tungstenite::Message::Binary(vec![])).await?;
+
+    // TODO: then, just receive whatever the heck
     Ok(())
 }
