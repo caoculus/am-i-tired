@@ -1,10 +1,5 @@
-<script setup lang="ts">
-</script>
+<script setup lang="ts"></script>
 
 <template>
-  <main>
-    <h1>
-      Hello world
-    </h1>
-  </main>
+  <p class="text-amber-800">Hello world</p>
 </template>
