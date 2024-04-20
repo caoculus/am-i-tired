@@ -1,0 +1,4 @@
+.direnv
+.envrc
+.venv
+shell.nix
