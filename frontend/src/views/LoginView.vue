@@ -10,7 +10,7 @@ const password = ref<string>('')
 </script>
 
 <template>
-  <div class="m-0 position-absolute h-screen bg-primary-200 w-screen flex justify-center items-center">
+  <div class="m-0 position-absolute h-screen bg-surface-600 w-screen flex justify-center items-center">
     <div class="flex flex-col gap-10 md:flex-col dark:bg-surface-800 p-7 rounded-2xl">
       <InputGroup>
         <InputGroupAddon>

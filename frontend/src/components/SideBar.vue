@@ -1,17 +1,50 @@
 <script setup lang="ts">
 import Menu from 'primevue/menu'
 import { ref } from "vue";
+export type sideBarItems = {
+  label: string;
+  icon: string;
+  route: string;
+}
 
-const items = ref([
-  { label: 'New', icon: 'pi pi-plus' },
-  { label: 'Search', icon: 'pi pi-search' }
+const items = ref<sideBarItems[]>([
+  {
+    label: 'Home',
+    icon: 'pi pi-home',
+    route: '/',
+  },
+  {
+    label: 'About',
+    icon: 'pi pi-info',
+    route: '/about',
+  },
+  {
+    label: 'History',
+    icon: 'pi pi-bookmark-fill',
+    route: '/history'
+  },
+  {
+    label: 'Login',
+    icon: 'pi pi-times',
+    route: '/login'
+  }
 ]);
 </script>
 
 <template>
-  <div class="flex justify-center">
-    <Menu :model="items" />
-  </div>
+    <Menu
+      :model="items"
+      class="w-full h-full"
+    >
+      <template #item="{ item, props }">
+        <router-link v-slot="{href, navigate }" :to="item.route" custom>
+          <a v-ripple :href="href" v-bind="props.action" @click="navigate">
+            <span :class="item.icon" />
+            <span class="ml-2">{{ item.label }}</span>
+          </a>
+        </router-link>
+      </template>
+    </Menu>
 </template>
 
 <style scoped>
