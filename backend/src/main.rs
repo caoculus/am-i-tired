@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use axum::{
     extract::{
         ws::{self, WebSocket},
@@ -9,12 +11,19 @@ use axum::{
 };
 use color_eyre::eyre::Result;
 use serde::Deserialize;
-use tokio_tungstenite::tungstenite;
+use thiserror::Error;
+use tokio::{net::TcpStream, select, time::Interval};
+use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
 // use sqlx::{postgres::PgPoolOptions, PgPool};
 // use tokio::{fs::File, io::AsyncWriteExt};
+use futures::{
+    stream::{SplitSink, SplitStream},
+    SinkExt, StreamExt,
+};
 use tower_http::cors::CorsLayer;
-use futures::{SinkExt, StreamExt};
 use tracing::*;
+
+// TODO: Let's do some simple authentication?
 
 // #[derive(Clone)]
 // struct AppState {
@@ -61,43 +70,137 @@ struct UserQuery {
     user: String,
 }
 
-async fn ws_test(ws: WebSocketUpgrade, Query(UserQuery { user }): Query<UserQuery>) -> Response {
+async fn ws_test(ws: WebSocketUpgrade) -> Response {
     ws.on_upgrade(|ws| async {
-        _ = handle_ws(ws, user).await;
+        if let Err(e) = handle_ws(ws).await {
+            error!("Error when handling websocket: {e}");
+        }
     })
 }
 
 // TODO: More stuff here!
 // Forward things to another server
 
-const AI_SERVER_ADDR: &str = "TODO";
+const AI_SERVER_ADDR: &str = "ws://localhost:3001";
+
+#[derive(Debug, Error)]
+enum HandleError {
+    #[error("Wrong state")]
+    WrongState,
+    #[error("Websocket closed")]
+    Closed,
+}
+
+#[derive(Debug)]
+enum HandleState {
+    Data,
+    Response,
+    Done(String),
+}
 
 #[tracing::instrument(skip_all, err(Debug))]
-async fn handle_ws(mut ws: WebSocket, user: String) -> Result<()> {
+async fn handle_ws(ws: WebSocket) -> Result<()> {
     info!("Got connection");
+    let (ai_ws, _) = tokio_tungstenite::connect_async(AI_SERVER_ADDR).await?;
+    let (ai_tx, ai_rx) = ai_ws.split();
+    let state = HandleState::Data;
+    let ping_interval = tokio::time::interval(Duration::from_secs(5));
 
-    let (mut ai_ws, _) = tokio_tungstenite::connect_async(AI_SERVER_ADDR).await?;
+    let res = HandleWs {
+        ws: Some(ws),
+        ai_tx,
+        ai_rx,
+        state,
+        ping_interval,
+    }
+    .run()
+    .await?;
+    info!("Got result: {res}");
 
-    // let now = chrono::offset::Local::now();
-    // let mut f = File::create(&format!("{now}.webm")).await?;
-    while let Some(res) = ws.recv().await {
-        let msg = res?;
+    Ok(())
+}
+
+type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
+struct HandleWs {
+    ws: Option<WebSocket>,
+    ai_tx: SplitSink<WsStream, tungstenite::Message>,
+    ai_rx: SplitStream<WsStream>,
+    state: HandleState,
+    ping_interval: Interval,
+}
+
+impl HandleWs {
+    async fn run(mut self) -> Result<String> {
+        async fn wait_ws(ws: &mut Option<WebSocket>) -> Option<Result<ws::Message, axum::Error>> {
+            let Some(ws) = ws else {
+                std::future::pending::<()>().await;
+                unreachable!();
+            };
+            ws.recv().await
+        }
+
+        while !matches!(self.state, HandleState::Done(..)) {
+            select! {
+                res = wait_ws(&mut self.ws) => {
+                    let Some(res) = res else { break };
+                    let msg = res?;
+                    self.handle_client_msg(msg).await?;
+                }
+                res = self.ai_rx.next() => {
+                    let Some(res) = res else { break };
+                    let msg = res?;
+                    self.handle_ai_msg(msg).await?;
+                }
+                _ = self.ping_interval.tick() => {
+                    self.ai_tx.send(tungstenite::Message::Ping(vec![])).await?;
+                }
+            }
+        }
+        info!("Exiting run loop");
+        let HandleState::Done(res) = self.state else {
+            unreachable!()
+        };
+        Ok(res)
+    }
+
+    async fn handle_client_msg(&mut self, msg: ws::Message) -> Result<()> {
         match msg {
-            ws::Message::Binary(new_data) => {
-                info!("Got binary");
-                ai_ws.send(tungstenite::Message::Binary(new_data)).await?;
+            ws::Message::Binary(data) => {
+                let HandleState::Data = &self.state else {
+                    return Err(HandleError::WrongState.into());
+                };
+                info!("Got binary data");
+                self.ai_tx.send(tungstenite::Message::Binary(data)).await?;
             }
             ws::Message::Close(_) => {
-                info!("Connection closed");
-                break;
+                info!("Client websocket closed");
+                self.ws = None;
+                self.state = HandleState::Response;
+                self.ai_tx.send(tungstenite::Message::Binary(vec![])).await?;
             }
             _ => {}
         }
+        Ok(())
     }
 
-    // we'll mark eof with an empty message
-    ai_ws.send(tungstenite::Message::Binary(vec![])).await?;
-
-    // TODO: then, just receive whatever the heck
-    Ok(())
+    async fn handle_ai_msg(&mut self, msg: tungstenite::Message) -> Result<()> {
+        match msg {
+            tungstenite::Message::Text(res) => {
+                let HandleState::Response = &self.state else {
+                    return Err(HandleError::WrongState.into());
+                };
+                info!("Got AI result");
+                self.state = HandleState::Done(res);
+            }
+            tungstenite::Message::Ping(_) => {
+                self.ai_tx.send(tungstenite::Message::Pong(vec![])).await?;
+            }
+            tungstenite::Message::Close(_) => {
+                info!("AI websocket closed");
+                return Err(HandleError::Closed.into());
+            }
+            _ => {}
+        }
+        Ok(())
+    }
 }
