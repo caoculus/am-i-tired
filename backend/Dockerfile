@@ -8,7 +8,7 @@ COPY ./Cargo.toml ./Cargo.lock /backend/
 WORKDIR /backend
 RUN --mount=type=cache,target=/usr/local/cargo/registry cargo build --release
 
-ENV AI_SERVER_ADDR 107.218.158.102:3001
+ENV AI_SERVER_ADDR ws://107.218.158.102:26006
 
 COPY ./src /backend/src
 RUN --mount=type=cache,target=/usr/local/cargo/registry <<EOF
