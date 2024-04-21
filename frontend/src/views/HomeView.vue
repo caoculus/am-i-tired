@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import Panel from 'primevue/pan</script>
+import Panel from 'primevue/panel'
+</script>
 
 <template>
   <div class="flex flex-col m-0 position-absolute justify-center items-center">
