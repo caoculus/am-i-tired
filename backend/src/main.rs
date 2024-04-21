@@ -10,7 +10,7 @@ use axum::{
     Json, Router,
 };
 use color_eyre::eyre::Result;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::{net::TcpStream, select, time::Interval};
 use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
@@ -90,13 +90,15 @@ enum HandleError {
     WrongState,
     #[error("Websocket closed")]
     Closed,
+    #[error("Websocket EOF")]
+    Eof,
 }
 
 #[derive(Debug)]
 enum HandleState {
     Data,
     Response,
-    Done(String),
+    Done,
 }
 
 async fn handle_ws(ws: WebSocket) -> Result<()> {
@@ -107,8 +109,8 @@ async fn handle_ws(ws: WebSocket) -> Result<()> {
     let state = HandleState::Data;
     let ping_interval = tokio::time::interval(Duration::from_secs(5));
 
-    let res = HandleWs {
-        ws: Some(ws),
+    HandleWs {
+        ws,
         ai_tx,
         ai_rx,
         state,
@@ -116,14 +118,15 @@ async fn handle_ws(ws: WebSocket) -> Result<()> {
     }
     .run()
     .await?;
-    info!("Got result: {res}");
 
     Ok(())
 }
 
+// TODO: no more option, we need to send data back
+
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 struct HandleWs {
-    ws: Option<WebSocket>,
+    ws: WebSocket,
     ai_tx: SplitSink<WsStream, tungstenite::Message>,
     ai_rx: SplitStream<WsStream>,
     state: HandleState,
@@ -131,24 +134,20 @@ struct HandleWs {
 }
 
 impl HandleWs {
-    async fn run(mut self) -> Result<String> {
-        async fn wait_ws(ws: &mut Option<WebSocket>) -> Option<Result<ws::Message, axum::Error>> {
-            let Some(ws) = ws else {
-                std::future::pending::<()>().await;
-                unreachable!();
-            };
-            ws.recv().await
-        }
-
-        while !matches!(self.state, HandleState::Done(..)) {
+    async fn run(mut self) -> Result<()> {
+        while !matches!(self.state, HandleState::Done) {
             select! {
-                res = wait_ws(&mut self.ws) => {
-                    let Some(res) = res else { break };
+                res = self.ws.recv() => {
+                    let Some(res) = res else {
+                        return Err(HandleError::Eof.into());
+                    };
                     let msg = res?;
                     self.handle_client_msg(msg).await?;
                 }
                 res = self.ai_rx.next() => {
-                    let Some(res) = res else { break };
+                    let Some(res) = res else {
+                        return Err(HandleError::Eof.into());
+                    };
                     let msg = res?;
                     self.handle_ai_msg(msg).await?;
                 }
@@ -158,26 +157,30 @@ impl HandleWs {
             }
         }
         info!("Exiting run loop");
-        let HandleState::Done(res) = self.state else {
-            unreachable!()
-        };
-        Ok(res)
+        Ok(())
     }
 
     async fn handle_client_msg(&mut self, msg: ws::Message) -> Result<()> {
         match msg {
             ws::Message::Binary(data) => {
-                let HandleState::Data = &self.state else {
-                    return Err(HandleError::WrongState.into());
-                };
+                if !matches!(self.state, HandleState::Data) {
+                    // ignore
+                    return Ok(());
+                }
                 info!("Got binary data");
                 self.ai_tx.send(tungstenite::Message::Binary(data)).await?;
             }
+            ws::Message::Text(_) => {
+                let HandleState::Data = &self.state else {
+                    return Err(HandleError::WrongState.into());
+                };
+                info!("Got end of data");
+                self.ai_tx.send(tungstenite::Message::Binary(vec![])).await?;
+                self.state = HandleState::Response;
+            }
             ws::Message::Close(_) => {
                 info!("Client websocket closed");
-                self.ws = None;
-                self.state = HandleState::Response;
-                self.ai_tx.send(tungstenite::Message::Binary(vec![])).await?;
+                return Err(HandleError::Closed.into());
             }
             _ => {}
         }
@@ -190,7 +193,8 @@ impl HandleWs {
                 let HandleState::Response = &self.state else {
                     return Err(HandleError::WrongState.into());
                 };
-                self.state = HandleState::Done(res);
+                self.ws.send(ws::Message::Text(res)).await?;
+                self.state = HandleState::Done;
             }
             tungstenite::Message::Ping(_) => {
                 self.ai_tx.send(tungstenite::Message::Pong(vec![])).await?;

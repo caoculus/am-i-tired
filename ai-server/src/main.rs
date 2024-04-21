@@ -3,8 +3,13 @@ use std::{os::unix::ffi::OsStrExt, path::PathBuf, process::Stdio, sync::Arc};
 use color_eyre::eyre::Result;
 use futures::{SinkExt, StreamExt};
 use scopeguard::defer;
+use serde_json::json;
 use tokio::{
-    fs::File, io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter}, net::{TcpListener, TcpStream}, process::{ChildStdin, ChildStdout, Command}, sync::Mutex
+    fs::File,
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter},
+    net::{TcpListener, TcpStream},
+    process::{ChildStdin, ChildStdout, Command},
+    sync::Mutex,
 };
 use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 use tracing::info;
@@ -47,8 +52,6 @@ async fn main() -> Result<()> {
 async fn handle_ws(mut ws: WebSocketStream<TcpStream>, io: Arc<Mutex<ChildIo>>) -> Result<()> {
     info!("Got connection");
 
-    // aggregate output
-    let mut output = String::new();
     let filename = PathBuf::from(Uuid::new_v4().to_string()).with_extension("webm");
     let mut f = BufWriter::new(File::create(&filename).await?);
     info!("Writing to file {filename:?}");
@@ -66,6 +69,7 @@ async fn handle_ws(mut ws: WebSocketStream<TcpStream>, io: Arc<Mutex<ChildIo>>) 
                     continue;
                 }
 
+                let mut output = String::new();
                 {
                     let mut io = io.lock().await;
                     io.stdin.write_all(filename.as_os_str().as_bytes()).await?;
@@ -73,8 +77,14 @@ async fn handle_ws(mut ws: WebSocketStream<TcpStream>, io: Arc<Mutex<ChildIo>>) 
                     io.stdout.read_line(&mut output).await?;
                 }
 
-                info!("Replying to connection: {output}");
-                ws.send(Message::Text(output)).await?;
+                // try to parse as a single integer, otherwise mark as failure
+                let response = match output.trim().parse::<i32>() {
+                    Ok(res) => json! ({ "success": true, "result": res }),
+                    Err(_) => json! ({ "success": false, "error": output }),
+                };
+
+                info!("Sending response: {response}");
+                ws.send(Message::Text(response.to_string())).await?;
                 break;
             }
             Message::Ping(_) => {
