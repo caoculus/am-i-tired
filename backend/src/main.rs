@@ -3,32 +3,22 @@ use std::time::Duration;
 use axum::{
     extract::{
         ws::{self, WebSocket},
-        Query, WebSocketUpgrade,
+        WebSocketUpgrade,
     },
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
 use color_eyre::eyre::Result;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::{net::TcpStream, select, time::Interval};
 use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
-// use sqlx::{postgres::PgPoolOptions, PgPool};
-// use tokio::{fs::File, io::AsyncWriteExt};
 use futures::{
     stream::{SplitSink, SplitStream},
     SinkExt, StreamExt,
 };
 use tower_http::cors::CorsLayer;
 use tracing::*;
-
-// TODO: Let's do some simple authentication?
-
-// #[derive(Clone)]
-// struct AppState {
-//     user_db: PgPool,
-// }
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -37,21 +27,11 @@ async fn main() -> Result<()> {
         .with_max_level(tracing::Level::INFO)
         .init();
 
-    // let conn_url = std::env!("DATABASE_URL");
-    // let user_db = PgPoolOptions::new()
-    //     .max_connections(5)
-    //     .connect(conn_url)
-    //     .await?;
-    // sqlx::migrate!("./migrations").run(&user_db).await?;
-
     // build our application with a route
     let app = Router::new()
         .route("/", get(ws_test))
         .route("/request", post(request))
         .layer(CorsLayer::very_permissive());
-    // .with_state(AppState { user_db });
-
-    // TODO: What requests are we even receiving in the first place?
 
     // run it
     let listener = tokio::net::TcpListener::bind(":::3000").await.unwrap();
@@ -65,11 +45,6 @@ async fn request(Json(json): Json<serde_json::Value>) -> impl IntoResponse {
     info!("Got value: {json}")
 }
 
-#[derive(Deserialize)]
-struct UserQuery {
-    user: String,
-}
-
 async fn ws_test(ws: WebSocketUpgrade) -> Response {
     ws.on_upgrade(|ws| async {
         if let Err(e) = handle_ws(ws).await {
@@ -78,11 +53,7 @@ async fn ws_test(ws: WebSocketUpgrade) -> Response {
     })
 }
 
-// TODO: More stuff here!
-// Forward things to another server
-
-// const AI_SERVER_ADDR: &str = "ws://107.218.158.102:3001";
-const AI_SERVER_ADDR: &str = "ws://localhost:3001";
+const AI_SERVER_ADDR: &str = std::env!("AI_SERVER_ADDR");
 
 #[derive(Debug, Error)]
 enum HandleError {
@@ -121,8 +92,6 @@ async fn handle_ws(ws: WebSocket) -> Result<()> {
 
     Ok(())
 }
-
-// TODO: no more option, we need to send data back
 
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 struct HandleWs {
@@ -175,7 +144,9 @@ impl HandleWs {
                     return Err(HandleError::WrongState.into());
                 };
                 info!("Got end of data");
-                self.ai_tx.send(tungstenite::Message::Binary(vec![])).await?;
+                self.ai_tx
+                    .send(tungstenite::Message::Binary(vec![]))
+                    .await?;
                 self.state = HandleState::Response;
             }
             ws::Message::Close(_) => {
