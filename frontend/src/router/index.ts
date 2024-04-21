@@ -23,10 +23,15 @@ const router = createRouter({
       component: () => import('../views/LoginView.vue')
     },
     {
+      path: '/app',
+      name: 'app',
+      component: () => import('../views/AppView.vue')
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'notFound',
       component: () => import('../views/404View.vue')
-    }
+    },
   ]
 })
 

@@ -20,7 +20,7 @@ const { update, topBar } = defineProps<{
         </button>
       </template>
       <template #center>
-        <h1 class="text-white">Am I tired?</h1>
+        <h1 class="text-white">Am I Tired?</h1>
       </template>
       <template #end>
         <button

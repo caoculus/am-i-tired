@@ -11,9 +11,10 @@ const curStream = ref<MediaStream | null>(null);
 onMounted(() => {
   const recorderOptions = {
     mimeType: 'video/webm',
-    videoBitsPerSecond: 200000 // 0.2 Mbit/sec.
+    videoBitsPerSecond: 20000 // 0.2 Mbit/sec.
   }
-  const stream = navigator.mediaDevices.getUserMedia({video: true, audio: false}).then(
+
+  navigator.mediaDevices.getUserMedia({video: true, audio: false}).then(
     stream => {
       curStream.value = stream;
       mediaRecorder.value = new MediaRecorder(stream, recorderOptions)
@@ -70,10 +71,6 @@ const reconnect = () => {
 
 <template>
   <div>
-    <video ref="video" muted autoplay controls class="h-100 w-auto" />
+    <video ref="video" muted autoplay controls class="h-100 w-auto rounded-lg" />
   </div>
 </template>
-
-<style scoped>
-
-</style>

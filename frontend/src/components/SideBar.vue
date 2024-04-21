@@ -14,6 +14,11 @@ const items = ref<sideBarItems[]>([
     route: '/',
   },
   {
+    label: 'App',
+    icon: 'pi pi-desktop',
+    route: '/app',
+  },
+  {
     label: 'About',
     icon: 'pi pi-info',
     route: '/about',
