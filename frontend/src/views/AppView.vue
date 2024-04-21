@@ -17,7 +17,7 @@ type meter = {
   value: number,
 }
 
-const url = "ws://10.0.0.251:3000"
+const url = "wss://am-i-tired-backend.fly.dev/"
 const toast = useToast()
 let ws = new WebSocket(url)
 const mediaRecorder = ref<MediaRecorder | null>(null);
