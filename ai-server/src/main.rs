@@ -27,7 +27,7 @@ async fn main() -> Result<()> {
         .with_max_level(tracing::Level::INFO)
         .init();
 
-    let listener = TcpListener::bind(":::3001").await?;
+    let listener = TcpListener::bind(":::6006").await?;
     info!("Listening on {}", listener.local_addr().unwrap());
     let child = Command::new("./model.py")
         .stdin(Stdio::piped())
