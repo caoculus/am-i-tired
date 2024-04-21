@@ -73,7 +73,7 @@ struct UserQuery {
 async fn ws_test(ws: WebSocketUpgrade) -> Response {
     ws.on_upgrade(|ws| async {
         if let Err(e) = handle_ws(ws).await {
-            error!("Error when handling websocket: {e}");
+            error!("Error when handling websocket: {e:?}");
         }
     })
 }
@@ -98,7 +98,6 @@ enum HandleState {
     Done(String),
 }
 
-#[tracing::instrument(skip_all, err(Debug))]
 async fn handle_ws(ws: WebSocket) -> Result<()> {
     info!("Got connection");
     let (ai_ws, _) = tokio_tungstenite::connect_async(AI_SERVER_ADDR).await?;
@@ -189,7 +188,7 @@ impl HandleWs {
                 let HandleState::Response = &self.state else {
                     return Err(HandleError::WrongState.into());
                 };
-                info!("Got AI result");
+                info!("Got AI result: {res}");
                 self.state = HandleState::Done(res);
             }
             tungstenite::Message::Ping(_) => {
