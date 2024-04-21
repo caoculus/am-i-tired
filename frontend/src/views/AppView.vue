@@ -107,7 +107,7 @@ watchEffect(() => {
 const returnMetered: () => MeterItem = () => {
   return [{
     label: 'Tiredness level',
-    value: response.value?.result! * 10,
+    value: (response.value?.result! + 1) * 10,
   },]
 }
 
