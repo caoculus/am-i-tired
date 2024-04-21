@@ -10,13 +10,14 @@ use axum::{
     Json, Router,
 };
 use color_eyre::eyre::Result;
-use thiserror::Error;
-use tokio::{net::TcpStream, select, time::Interval};
-use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
 use futures::{
     stream::{SplitSink, SplitStream},
     SinkExt, StreamExt,
 };
+use serde_json::json;
+use thiserror::Error;
+use tokio::{net::TcpStream, select, time::Interval};
+use tokio_tungstenite::{tungstenite, MaybeTlsStream, WebSocketStream};
 use tower_http::cors::CorsLayer;
 use tracing::*;
 
@@ -59,6 +60,8 @@ const AI_SERVER_ADDR: &str = std::env!("AI_SERVER_ADDR");
 enum HandleError {
     #[error("Wrong state")]
     WrongState,
+    #[error("Connection timed out")]
+    Timeout,
     #[error("Websocket closed")]
     Closed,
     #[error("Websocket EOF")]
@@ -72,10 +75,23 @@ enum HandleState {
     Done,
 }
 
-async fn handle_ws(ws: WebSocket) -> Result<()> {
+async fn handle_ws(mut ws: WebSocket) -> Result<()> {
     info!("Got connection");
-    let (ai_ws, _) = tokio_tungstenite::connect_async(AI_SERVER_ADDR).await?;
-    info!("Connected to ai side");
+    let Ok(connect_res) = tokio::time::timeout(
+        Duration::from_secs(10),
+        tokio_tungstenite::connect_async(AI_SERVER_ADDR),
+    )
+    .await
+    else {
+        info!("AI side websocket connection timed out");
+        ws.send(ws::Message::Text(
+            json!({ "success": false, "error": "Connection to AI timed out" }).to_string(),
+        ))
+        .await?;
+        return Err(HandleError::Timeout.into());
+    };
+    let (ai_ws, _) = connect_res?;
+    info!("Connected to AI side");
     let (ai_tx, ai_rx) = ai_ws.split();
     let state = HandleState::Data;
     let ping_interval = tokio::time::interval(Duration::from_secs(5));
