@@ -1,13 +1,23 @@
 <script setup lang="ts">
 import Dialog from 'primevue/dialog'
-import Button from 'primevue/button'
 import { ref } from 'vue'
+import Button from 'primevue/button'
+
+export type sendingType = {
+  sendData: () => any
+}
+
+const { sendData } = defineProps<sendingType>()
 const visible = ref(false)
+const onSendClicked = () => {
+  sendData()
+  visible.value = true
+}
 
 </script>
 
 <template>
-  <Button label="Show Dialog" @click="visible = true"/>
+  <Button label="Send Data" @click="onSendClicked" />
   <div class="flex justify-center">
     <Dialog
       v-model:visible="visible"
@@ -16,7 +26,7 @@ const visible = ref(false)
       :breakpoints="{ '1199px': '75vw', '575px': '90vw' }"
     >
       <div class="flex flex-row justify-center items-center ">
-        <i class="pi pi-spin pi-spinner" style="font-size: 2rem"></i>
+        <slot name="result" />
       </div>
     </Dialog>
   </div>
