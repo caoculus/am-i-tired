@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "run-p type-check \"build-only {@}\" --",
+    "start": "serve -s dist",
     "preview": "vite preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --build --force",
@@ -16,6 +17,7 @@
     "axios": "^1.6.8",
     "primeicons": "^7.0.0",
     "primevue": "^3.51.0",
+    "serve": "^14.2.1",
     "vue": "^3.4.21",
     "vue-router": "^4.3.0"
   },
