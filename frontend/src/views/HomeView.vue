@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import Accordion from 'primevue/accordion'
 import AccordionTab from 'primevue/accordiontab'
-import Card from 'primevue/card'
+import Panel from 'primevue/panel'
 </script>
 
 <template>
-    <Accordion :active-index="0">
-      <AccordionTab header="Start Here">
-        <p class="m-0">Lorem ipsum dolor sit amet, consectetur adipisicing elit. Ad amet assumenda atque aut beatae dolor dolorem, eaque ipsam laboriosam libero natus nesciunt obcaecati officia optio quaerat qui ratione suscipit temporibus.</p>
-      </AccordionTab>
-      <AccordionTab header="Header 2">
-        <p class="m-0">Lorem ipsum dolor sit amet, consectEtur adipisicing elit. Ad amet assumenda atque aut beatae dolor dolorem, eaque ipsam laboriosam libero natus nesciunt obcaecati officia optio quaerat qui ratione suscipit temporibus.</p>
-      </AccordionTab>
-    </Accordion>
+  <div class="flex flex-col m-0 position-absolute justify-center items-center">
+    <Panel header="Welcome to our Project!">
+        <p class="m-0">
+          This project was made to detect tiredness through a short video (under 2 second!).
+          Switch to App tab to try it out yourself!
+        </p>
+    </Panel>
+  </div>
 </template>

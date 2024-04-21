@@ -22,6 +22,7 @@ const send = ref(true)
 const video = ref<HTMLVideoElement>();
 const curStream = ref<MediaStream | null>(null);
 const response = ref<results | null>(null)
+const timeOut = ref<boolean>(false)
 
 const recorderOptions = {
   mimeType: 'video/webm',
@@ -130,6 +131,9 @@ const returnMetered: () => MeterItem = () => {
               <p class="flex flex-wrap justify-center items-center gap-3" v-if="response.success">
                 <MeterGroup :value='returnMetered()' /> // @ts-
                 {{ResultMap[response.result!]}}
+              </p>
+              <p class="flex flex-wrap justify-center items-center gap-3" v-else-if="timeOut">
+               Timeout! Connection failed!
               </p>
               <p class="flex flex-wrap justify-center items-center" v-else>
                 Connection Failed! Please try again.

@@ -23,14 +23,14 @@ const { update, topBar } = defineProps<{
       <template #center>
         <h1 class="text-white">Am I Tired?</h1>
       </template>
-      <template #end>
-        <button
-          class="p-link inline-flex justify-center items-center text-white w-[3rem] rounded-full hover:bg-white/10 transition-all transition-duration-200"
-          v-ripple
-        >
-          <i class="pi pi-user text-2xl text-white"></i>
-        </button>
-      </template>
+<!--      <template #end>-->
+<!--        <button-->
+<!--          class="p-link inline-flex justify-center items-center text-white w-[3rem] rounded-full hover:bg-white/10 transition-all transition-duration-200"-->
+<!--          v-ripple-->
+<!--        >-->
+<!--          <i class="pi pi-user text-2xl text-white"></i>-->
+<!--        </button>-->
+<!--      </template>-->
     </Toolbar>
 </template>
 
