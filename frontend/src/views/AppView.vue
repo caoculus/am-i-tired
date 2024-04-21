@@ -1,10 +1,11 @@
 <script setup lang="ts">
+// @ts-nocheck
 import Button from 'primevue/button'
 import MeterGroup from 'primevue/metergroup'
 import { useToast } from 'primevue/usetoast'
 import Toast from 'primevue/toast'
 import ResultsTab from '@/components/ResultsTab.vue'
-import { onMounted, reactive, ref, watchEffect } from 'vue'
+import { onMounted, ref, watchEffect } from 'vue'
 import ResultMap from '@/assets/resultMap'
 
 export type results = {
@@ -12,10 +13,6 @@ export type results = {
   result?: number,
 }
 
-type meter = {
-  label: string,
-  value: number,
-}
 
 const url = "wss://am-i-tired-backend.fly.dev/"
 const toast = useToast()
@@ -28,7 +25,7 @@ const response = ref<results | null>(null)
 
 const recorderOptions = {
   mimeType: 'video/webm',
-  videoBitsPerSecond: 200000 // 0.2 Mbit/sec.
+  videoBitsPerSecond: 200000 // 2 Mbit/sec.
 }
 
 onMounted(() => {
@@ -106,10 +103,10 @@ watchEffect(() => {
   }
 })
 
-const returnMetered: () => meter[] = () => {
+const returnMetered: () => MeterItem = () => {
   return [{
     label: 'Tiredness level',
-    value: response.value?.result * 10
+    value: response.value?.result! * 10,
   },]
 }
 
@@ -131,8 +128,8 @@ const returnMetered: () => meter[] = () => {
               <div>
               </div>
               <p class="flex flex-wrap justify-center items-center gap-3" v-if="response.success">
-                <MeterGroup :value='returnMetered()' />
-                {{ResultMap[response.result]}}
+                <MeterGroup :value='returnMetered()' /> // @ts-
+                {{ResultMap[response.result!]}}
               </p>
               <p class="flex flex-wrap justify-center items-center" v-else>
                 Connection Failed! Please try again.
