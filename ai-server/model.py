@@ -52,6 +52,10 @@ def main():
         vframes, _, _ = torchvision.io.read_video(filename)
         # convert to pil image
         vframes = vframes.permute(0, 3, 1, 2)
+        if len(vframes) == 0:
+            print('Please try again')
+            continue
+
         f0 = torchvision.transforms.ToPILImage()(vframes[0])
         f0, (x1, y1, x2, y2) = detect_face(f0)
         vframes = vframes[:200, :, y1:y2, x1:x2].float() / 255.
