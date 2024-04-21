@@ -42,7 +42,7 @@ def detect_face(frame, leaway=(10,50)):
     y1 = max(0, round(y1) - y_offset1)
     x2 = round(x2) + x_offset2
     y2 = round(y2) + y_offset2
-    return frame[y1:y2, x1:x2], (x1, y1, x2, y2)
+    return None, (x1, y1, x2, y2)
 
 @torch.no_grad()
 def main():
@@ -54,7 +54,7 @@ def main():
         vframes = vframes.permute(0, 3, 1, 2)
         f0 = torchvision.transforms.ToPILImage()(vframes[0])
         f0, (x1, y1, x2, y2) = detect_face(f0)
-        vframes = vframes[:30, :, y1:y2, x1:x2].float() / 255.
+        vframes = vframes[:200, :, y1:y2, x1:x2].float() / 255.
         vframes = preprocessor(vframes)
 
         if x1 == 0 and y1 == 0 and x2 == f0.width and y2 == f0.height:
@@ -62,10 +62,8 @@ def main():
         
         # # TODO: The actual model call
         output = drowsieness_detection_model(vframes.cuda())
-        output = sigmoid(output).mean()
-        print(output.item())
-
-        # print(f"Got tensor with shape {vframes.shape}")
+        output = sigmoid(output)
+        print(int(output.mean().item() * 10))
 
 if __name__ == "__main__":
     main()
