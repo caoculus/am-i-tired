@@ -69,7 +69,7 @@ const start = () => {
     return false
   }
   mediaRecorder.value.start(1000); // 1000 - the number of milliseconds to record into each Blob
-  window.setTimeout(stop, 1500)
+  window.setTimeout(stop, 5500)
   return true
 }
 
