@@ -23,16 +23,16 @@ const items = ref<sideBarItems[]>([
     icon: 'pi pi-info',
     route: '/about',
   },
-  {
-    label: 'History',
-    icon: 'pi pi-bookmark-fill',
-    route: '/history'
-  },
-  {
-    label: 'Login',
-    icon: 'pi pi-times',
-    route: '/login'
-  }
+  // {
+  //   label: 'History',
+  //   icon: 'pi pi-bookmark-fill',
+  //   route: '/history'
+  // },
+  // {
+  //   label: 'Login',
+  //   icon: 'pi pi-times',
+  //   route: '/login'
+  // }
 ]);
 </script>
 

@@ -13,6 +13,7 @@ const { update, topBar } = defineProps<{
     <Toolbar v-if="topBar" class="shadow-md bg-gradient-to-r from-surface-700 to-surface-700 rounded-none">
       <template #start>
         <button
+          v-ripple
           class="p-link inline-flex justify-center items-center text-white w-[3rem] rounded-full hover:bg-white/10 transition-all transition-duration-200"
           @click="update"
         >
@@ -25,6 +26,7 @@ const { update, topBar } = defineProps<{
       <template #end>
         <button
           class="p-link inline-flex justify-center items-center text-white w-[3rem] rounded-full hover:bg-white/10 transition-all transition-duration-200"
+          v-ripple
         >
           <i class="pi pi-user text-2xl text-white"></i>
         </button>

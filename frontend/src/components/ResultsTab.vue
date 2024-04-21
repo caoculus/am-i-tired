@@ -4,14 +4,15 @@ import { ref } from 'vue'
 import Button from 'primevue/button'
 
 export type sendingType = {
-  sendData: () => any
+  sendData: () => boolean
 }
 
 const { sendData } = defineProps<sendingType>()
 const visible = ref(false)
 const onSendClicked = () => {
-  sendData()
-  visible.value = true
+  if(sendData()){
+    visible.value = true
+  }
 }
 
 </script>
