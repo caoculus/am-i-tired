@@ -1,4 +1,5 @@
-.idea/**
 .direnv
 .envrc
 shell.nix
+/target
+.venv
