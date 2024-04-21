@@ -4,10 +4,7 @@ use color_eyre::eyre::Result;
 use futures::{SinkExt, StreamExt};
 use scopeguard::defer;
 use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-    net::{TcpListener, TcpStream},
-    process::{ChildStdin, ChildStdout, Command},
-    sync::Mutex,
+    fs::File, io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter}, net::{TcpListener, TcpStream}, process::{ChildStdin, ChildStdout, Command}, sync::Mutex
 };
 use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 use tracing::info;
@@ -52,31 +49,33 @@ async fn handle_ws(mut ws: WebSocketStream<TcpStream>, io: Arc<Mutex<ChildIo>>) 
 
     // aggregate output
     let mut output = String::new();
+    let filename = PathBuf::from(Uuid::new_v4().to_string()).with_extension("webm");
+    let mut f = BufWriter::new(File::create(&filename).await?);
+    info!("Writing to file {filename:?}");
+    defer!({
+        info!("Cleaning up file {filename:?}");
+        _ = std::fs::remove_file(&filename);
+    });
 
     while let Some(res) = ws.next().await {
         let msg = res?;
         match msg {
             Message::Binary(data) => {
-                if data.is_empty() {
-                    info!("Replying to connection: {output}");
-                    // done, just reply
-                    ws.send(Message::Text(output)).await?;
-                    break;
+                if !data.is_empty() {
+                    f.write_all(&data).await?;
+                    continue;
                 }
 
-                let mut io = io.lock().await;
-                let filename =
-                    PathBuf::from(Uuid::new_v4().to_string()).with_extension("webm");
-                info!("Processing file {filename:?}");
-                tokio::fs::write(&filename, &data).await?;
-                // we'll just do synchronous cleanup...
-                defer!({
-                    info!("Cleaning up file {filename:?}");
-                    _ = std::fs::remove_file(&filename);
-                });
-                io.stdin.write_all(filename.as_os_str().as_bytes()).await?;
-                io.stdin.write_all(b"\n").await?;
-                io.stdout.read_line(&mut output).await?;
+                {
+                    let mut io = io.lock().await;
+                    io.stdin.write_all(filename.as_os_str().as_bytes()).await?;
+                    io.stdin.write_all(b"\n").await?;
+                    io.stdout.read_line(&mut output).await?;
+                }
+
+                info!("Replying to connection: {output}");
+                ws.send(Message::Text(output)).await?;
+                break;
             }
             Message::Ping(_) => {
                 ws.send(Message::Pong(vec![])).await?;

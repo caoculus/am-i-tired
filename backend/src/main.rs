@@ -81,6 +81,7 @@ async fn ws_test(ws: WebSocketUpgrade) -> Response {
 // TODO: More stuff here!
 // Forward things to another server
 
+// const AI_SERVER_ADDR: &str = "ws://107.218.158.102:3001";
 const AI_SERVER_ADDR: &str = "ws://localhost:3001";
 
 #[derive(Debug, Error)]
@@ -101,6 +102,7 @@ enum HandleState {
 async fn handle_ws(ws: WebSocket) -> Result<()> {
     info!("Got connection");
     let (ai_ws, _) = tokio_tungstenite::connect_async(AI_SERVER_ADDR).await?;
+    info!("Connected to ai side");
     let (ai_tx, ai_rx) = ai_ws.split();
     let state = HandleState::Data;
     let ping_interval = tokio::time::interval(Duration::from_secs(5));
@@ -188,7 +190,6 @@ impl HandleWs {
                 let HandleState::Response = &self.state else {
                     return Err(HandleError::WrongState.into());
                 };
-                info!("Got AI result: {res}");
                 self.state = HandleState::Done(res);
             }
             tungstenite::Message::Ping(_) => {
