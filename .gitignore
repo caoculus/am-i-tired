@@ -1,3 +1,4 @@
+.idea/**
 .direnv
 .envrc
 shell.nix

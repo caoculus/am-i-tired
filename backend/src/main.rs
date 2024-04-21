@@ -164,6 +164,7 @@ impl HandleWs {
                 let HandleState::Response = &self.state else {
                     return Err(HandleError::WrongState.into());
                 };
+                info!("Sending response: {res}");
                 self.ws.send(ws::Message::Text(res)).await?;
                 self.state = HandleState::Done;
             }
