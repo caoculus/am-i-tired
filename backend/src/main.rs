@@ -62,6 +62,8 @@ enum HandleError {
     WrongState,
     #[error("Connection timed out")]
     Timeout,
+    #[error("Connection failed")]
+    Failed,
     #[error("Websocket closed")]
     Closed,
     #[error("Websocket EOF")]
@@ -90,7 +92,14 @@ async fn handle_ws(mut ws: WebSocket) -> Result<()> {
         .await?;
         return Err(HandleError::Timeout.into());
     };
-    let (ai_ws, _) = connect_res?;
+    let Ok((ai_ws, _)) = connect_res else {
+        info!("AI side websocket connection failed");
+        ws.send(ws::Message::Text(
+            json!({ "success": false, "error": "Connection to AI failed" }).to_string(),
+        ))
+        .await?;
+        return Err(HandleError::Failed.into());
+    };
     info!("Connected to AI side");
     let (ai_tx, ai_rx) = ai_ws.split();
     let state = HandleState::Data;
