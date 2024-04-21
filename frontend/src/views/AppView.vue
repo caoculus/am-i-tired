@@ -8,11 +8,16 @@ import ResultsTab from '@/components/ResultsTab.vue'
 import { onMounted, ref, watchEffect } from 'vue'
 import ResultMap from '@/assets/resultMap'
 
-export type results = {
-  success: boolean,
-  result?: number,
-}
+// export type results = {
+//   success: boolean,
+//   error: string,
+//   result?: number,
+// }
 
+export type results = {
+  success: true,
+  result: number
+} | { success: false, error: string };
 
 const url = "wss://am-i-tired-backend.fly.dev/"
 const toast = useToast()
@@ -129,14 +134,14 @@ const returnMetered: () => MeterItem = () => {
               <div>
               </div>
               <p class="flex flex-wrap justify-center items-center gap-3" v-if="response.success">
-                <MeterGroup :value='returnMetered()' /> // @ts-
+                <MeterGroup :value='returnMetered()' />
                 {{ResultMap[response.result!]}}
               </p>
               <p class="flex flex-wrap justify-center items-center gap-3" v-else-if="timeOut">
                Timeout! Connection failed!
               </p>
-              <p class="flex flex-wrap justify-center items-center" v-else>
-                Connection Failed! Please try again.
+              <p class="flex flex-wrap justify-center items-center mb-3" v-else>
+                {{response.error}}
               </p>
               <Button label="try again" @click="reconnect" />
             </div>
