@@ -1,13 +1,20 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
+import MeterGroup from 'primevue/metergroup'
 import { useToast } from 'primevue/usetoast'
 import Toast from 'primevue/toast'
-import ResultsTab, { type sendingType } from '@/components/ResultsTab.vue'
-import { onMounted, ref, watchEffect } from 'vue'
+import ResultsTab from '@/components/ResultsTab.vue'
+import { onMounted, reactive, ref, watchEffect } from 'vue'
+import ResultMap from '@/assets/resultMap'
 
 export type results = {
   success: boolean,
   result?: number,
+}
+
+type meter = {
+  label: string,
+  value: number,
 }
 
 const url = "ws://10.0.0.251:3000"
@@ -19,16 +26,14 @@ const video = ref<HTMLVideoElement>();
 const curStream = ref<MediaStream | null>(null);
 const response = ref<results | null>(null)
 
+const recorderOptions = {
+  mimeType: 'video/webm',
+  videoBitsPerSecond: 200000 // 0.2 Mbit/sec.
+}
 
 onMounted(() => {
-  const recorderOptions = {
-    mimeType: 'video/webm',
-    videoBitsPerSecond: 200000 // 0.2 Mbit/sec.
-  }
-
   navigator.mediaDevices.getUserMedia({video: true, audio: false}).then(
     stream => {
-      // ws.value = new WebSocket(url,)
       curStream.value = stream;
       mediaRecorder.value = new MediaRecorder(stream, recorderOptions)
       mediaRecorder.value.ondataavailable = (event) => {
@@ -37,6 +42,7 @@ onMounted(() => {
           ws.send(event.data);
         }
       };
+      addListener()
     }
   ).catch(() => {
     toast.add({
@@ -51,10 +57,17 @@ onMounted(() => {
 
 const start = () => {
   if(!mediaRecorder.value) {
-    return
+    toast.add({
+      severity: 'error',
+      summary: 'Permission declined',
+      detail: 'Please enable camera',
+      life: 5000
+    })
+    return false
   }
   mediaRecorder.value.start(1000); // 1000 - the number of milliseconds to record into each Blob
-  window.setTimeout(stop, 6000)
+  window.setTimeout(stop, 1500)
+  return true
 }
 
 const stop = () => {
@@ -73,19 +86,32 @@ const reconnect = () => {
     ws.close()
   }
   ws = new WebSocket(url)
+  response.value = null
+  send.value = true
+  start()
+  addListener()
 }
 
-ws.addEventListener("message", (event) => {
-  console.log(`Received message from ${url}: ${event.data}`);
-  response.value = JSON.parse(event.data);
-  ws.close()
-})
+const addListener = () => {
+  ws.addEventListener("message", (event) => {
+    console.log(`Received message from ${url}: ${event.data}`);
+    response.value = JSON.parse(event.data);
+    ws.close()
+  })
+}
 
 watchEffect(() => {
   if(video.value){
     video.value.srcObject = curStream.value
   }
 })
+
+const returnMetered: () => meter[] = () => {
+  return [{
+    label: 'Tiredness level',
+    value: response.value?.result * 10
+  },]
+}
 
 </script>
 
@@ -97,12 +123,20 @@ watchEffect(() => {
       <div class="flex flex-row items-center justify-center gap-3 my-3">
         <ResultsTab :send-data="start">
           <template #result>
-            <div class="flex" v-if="!response">
+            <div class="flex flex-col" v-if="!response">
               <h1 class="text-primary-50">Getting results...</h1>
               <i class="pi pi-spin pi-spinner" style="font-size: 2rem"></i>
             </div>
             <div class="flex flex-col" v-else>
-              {{response.result}}
+              <div>
+              </div>
+              <p class="flex flex-wrap justify-center items-center gap-3" v-if="response.success">
+                <MeterGroup :value='returnMetered()' />
+                {{ResultMap[response.result]}}
+              </p>
+              <p class="flex flex-wrap justify-center items-center" v-else>
+                Connection Failed! Please try again.
+              </p>
               <Button label="try again" @click="reconnect" />
             </div>
           </template>
